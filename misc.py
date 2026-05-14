@@ -646,9 +646,8 @@ def make_triangle_plot(F_dic, tr, tc, param_names, param_values_dict, desired_pa
             for expcntr, exp in enumerate( F_dic ):
 
                 F_mat = F_dic[exp]
-                #exp_COV = sc.linalg.pinv(F_mat)
-                ##print(F_mat); sys.exit()
-                exp_COV = np.linalg.inv(F_mat)
+                exp_COV = sc.linalg.pinv(F_mat)
+                ###exp_COV = np.linalg.inv(F_mat)
                 ###print( exp_COV )
 
                 #cov_extract = np.asarray( [exp_COV[ii] for ii in cov_inds_to_extract] ).reshape((2,2))
