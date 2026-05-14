@@ -3,6 +3,41 @@ import scipy as sc
 import scipy.integrate as integrate
 from pylab import *
 
+def process_cosmo_param_dict_and_set_cosmo(cosmo_param_dict):
+    import pyccl as ccl
+    if cosmo_param_dict is None:
+        cosmo_param_dict = {'omch2':0.1212, 'ombh2': 0.0202, 'h': 0.67, 'sigma8':0.81, 'ns': 0.96, 'w0': -1, 'wa': 0., 'mnu': 0.06}
+    if 'ombh2' in cosmo_param_dict:
+        omegab = cosmo_param_dict['ombh2']/cosmo_param_dict['h']**2.
+    elif 'omegab' in cosmo_param_dict:
+        omegab = cosmo_param_dict['omegab']
+    else:
+        print('Either ombh2 or omegab must exist.'); sys.exit()
+    if 'omch2' in cosmo_param_dict:
+        omegac = cosmo_param_dict['omch2']/cosmo_param_dict['h']**2.
+    elif 'omegam' in cosmo_param_dict:
+        omegac = cosmo_param_dict['omegam'] - omegab
+    else:
+        print('Either omch2 or omegam must exist.'); sys.exit()
+
+    cosmo_param_dict['omegac'] = omegac
+    cosmo_param_dict['omegab'] = omegab
+
+    #cosmo = ccl.Cosmology(Omega_c=cosmo_param_dict['omegac'], Omega_b=cosmo_param_dict['omegab'], h=cosmo_param_dict['h'], sigma8=cosmo_param_dict['sigma8'], n_s=cosmo_param_dict['ns'])
+    cosmo = ccl.Cosmology(Omega_c=cosmo_param_dict['omegac'], 
+        Omega_b=cosmo_param_dict['omegab'], 
+        h=cosmo_param_dict['h'], 
+        sigma8=cosmo_param_dict['sigma8'], 
+        n_s=cosmo_param_dict['ns'], 
+        w0=cosmo_param_dict['w0'], wa=cosmo_param_dict['wa'], 
+        m_nu=cosmo_param_dict['mnu'],
+        transfer_function='boltzmann_camb',
+        #extra_parameters={'camb': {'dark_energy_model': 'ppf', 'kmax': cosmo_param_dict['kmax']}},
+        extra_parameters={'camb': {'dark_energy_model': 'ppf'}},
+        )    
+
+    return cosmo_param_dict, cosmo
+
 def ngal_experiment(experiment, units = 'sr'):
     if experiment in ['roman_hls_lens']:
         ngal_per_arcmin2 = 51 #Page 3 of https://arxiv.org/pdf/2112.07681
@@ -116,11 +151,7 @@ def get_dngal_dz_photoz(experiment, zbin, z1 = 0.01, z2 = 4., total_bins = 500, 
         bias_model = 1.2 + (zbincntr * 0.1)
     elif experiment in ['lsst_y1_source', 'lsst_y1_lens']:
         import pyccl as ccl
-        if cosmo_param_dict is None:
-            cosmo_param_dict = {'omch2':0.1212, 'ombh2': 0.0202, 'h': 0.67, 'sigma8':0.81, 'ns': 0.96}
-        Omega_c = cosmo_param_dict['omch2']/cosmo_param_dict['h']**2.
-        Omega_b = cosmo_param_dict['ombh2']/cosmo_param_dict['h']**2.
-        cosmo = ccl.Cosmology(Omega_c=Omega_c, Omega_b=Omega_b, h=cosmo_param_dict['h'], sigma8=cosmo_param_dict['sigma8'], n_s=cosmo_param_dict['ns'])
+        cosmo_param_dict, cosmo = process_cosmo_param_dict_and_set_cosmo(cosmo_param_dict)        
         scale_fac_arr = 1/(1+zarr)
         #D_a = ccl.background.angular_diameter_distance(cosmo, scale_fac_arr)
         Dz = ccl.growth_factor(cosmo, scale_fac_arr)
@@ -333,6 +364,38 @@ def get_ia_nla_model(zarr, a_ia, eta_ia, exp_specs_dic):
     ia_nla_model = a_ia * ((1.0 + zarr) / (1.0 + exp_specs_dic['z0'])) ** eta_ia
     return ia_nla_model
 
+def get_scale_dependent_bias(cosmo_param_dict, zarr, bias_model, exp_specs_dic, delta_c = 1.686, c = 1., kmin = 1e-3, kmax = 1., kdelta = 100, kpivot = 0.05):
+    assert 'fnl_loc' in cosmo_param_dict
+    import pyccl as ccl
+    cosmo_param_dict, cosmo = process_cosmo_param_dict_and_set_cosmo(cosmo_param_dict)
+    scale_fac_arr = 1/(1+zarr)
+    Dz = ccl.growth_factor(cosmo, scale_fac_arr)
+
+    karr = np.geomspace(kmin, kmax, kdelta)
+    pk_lin = ccl.linear_matter_power(cosmo, karr, scale_fac_arr)
+    p_primordial = (2 * np.pi**2 / karr**3) * cosmo_param_dict['As'] * (karr / kpivot)**(cosmo_param_dict['ns'] - 1.0)
+    transfer_k = (1./Dz[:,np.newaxis]) * np.sqrt(pk_lin[np.newaxis, :] / p_primordial)
+    
+    t1 = (bias_model-1) * cosmo_param_dict['fnl_loc'] * delta_c
+    t2 = 3 * cosmo_param_dict['omegam'] * (100*cosmo_param_dict['h'])**2.
+    t3 = karr**2. * transfer_k * Dz[:,np.newaxis]
+    scale_dep_bias_model = (t1[:,np.newaxis] * t2)/t3
+
+    
+    if experiment == 'lsst_y1_source':
+        z0 = 0.28
+        alpha = 2.
+        beta = 0.94
+        sigma_z = 0.05 * (1+zbin_centre)
+    elif experiment == 'lsst_y1_lens':
+        z0 = 0.13
+        alpha = 2.
+        beta = 0.78
+        sigma_z = 0.03 * (1+zbin_centre)
+    zbincntr = np.arange(len(zarr)) + 1
+    bias_model = 0.9/Dz
+    bias_model[np.isinf(bias_model) | np.isnan(bias_model)] = 0.
+
 def get_nx2pt_data_vectors_and_cov(experiment, 
     zmin = 0.01, zbinwidth = 0.5, zmax = 2.51, 
     ell = None, 
@@ -349,31 +412,7 @@ def get_nx2pt_data_vectors_and_cov(experiment,
     import pyccl as ccl
     if ell is None:
         ell = np.geomspace(2, 2000, 20)
-    if cosmo_param_dict is None:
-        cosmo_param_dict = {'omch2':0.1212, 'ombh2': 0.0202, 'h': 0.67, 'sigma8':0.81, 'ns': 0.96, 'w0': -1, 'wa': 0., 'mnu': 0.06}
-    if 'ombh2' in cosmo_param_dict:
-        omegab = cosmo_param_dict['ombh2']/cosmo_param_dict['h']**2.
-    elif 'omegab' in cosmo_param_dict:
-        omegab = cosmo_param_dict['omegab']
-    else:
-        print('Either ombh2 or omegab must exist.'); sys.exit()
-    if 'omch2' in cosmo_param_dict:
-        omegac = cosmo_param_dict['omch2']/cosmo_param_dict['h']**2.
-    elif 'omegam' in cosmo_param_dict:
-        omegac = cosmo_param_dict['omegam'] - omegab
-    else:
-        print('Either omch2 or omegam must exist.'); sys.exit()
-
-    cosmo = ccl.Cosmology(Omega_c=omegac, 
-        Omega_b=omegab, 
-        h=cosmo_param_dict['h'], 
-        sigma8=cosmo_param_dict['sigma8'], 
-        n_s=cosmo_param_dict['ns'], 
-        w0=cosmo_param_dict['w0'], wa=cosmo_param_dict['wa'], 
-        m_nu=cosmo_param_dict['mnu'],
-        transfer_function='boltzmann_camb',
-        extra_parameters={'camb': {'dark_energy_model': 'ppf'}},
-        )
+    cosmo_param_dict, cosmo = process_cosmo_param_dict_and_set_cosmo(cosmo_param_dict)
     ###print(cosmo); sys.exit()
 
     #get dN/dz
@@ -627,7 +666,9 @@ def get_nx2t_cov(ell, data_vector_dic_original, zbin_mid_arr, fsky_dic, obs_key_
         all_combs_kk = ['cl_k_k_z0_z0'] #this for kk
         all_combs_k = all_combs_ks + all_combs_kg + all_combs_kk
         all_combs_final = all_combs + all_combs_k
-        cov_mat_ndim = len(all_combs_final)
+    else:
+        all_combs_final = all_combs
+    cov_mat_ndim = len(all_combs_final)
     ##print(cov_mat_ndim); sys.exit()
 
     for elcntr, elval in enumerate( ell ):
