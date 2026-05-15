@@ -465,9 +465,9 @@ def get_nx2pt_data_vectors_and_cov(experiment,
         #CMB-lensing noise.
         cmb_lensing_noise_fname_searchstr = 'data/cmb/lensing/%s_*lmin300_lmax4000_lmaxtt3500.npy' %(cmb_experiment_for_kappa)
         cmb_lensing_noise_fname = glob.glob( cmb_lensing_noise_fname_searchstr )[0]
-        print('\tcmb_lensing_noise_fname = %s' %(cmb_lensing_noise_fname))
+        ###print('\tcmb_lensing_noise_fname = %s' %(cmb_lensing_noise_fname))
         cmbkappadic = np.load(cmb_lensing_noise_fname, allow_pickle=True, encoding = 'latin1').item()
-        tmpels, tmpnlkk = cmbkappadic['els'], cmbkappadic['Nl_MV']
+        tmpels, tmpnlkk = cmbkappadic['els'], cmbkappadic['Nl_MV'].real
         curr_nl_k_k = np.interp(ell, tmpels, tmpnlkk)
         """
         clf()
