@@ -415,6 +415,9 @@ def get_nx2pt_data_vectors_and_cov(experiment,
     fsky_dic = None, 
     cmb_experiment_for_kappa = 'advanced_sobaseline',
     show_plot = False,
+    zbin_mid_arr = None, 
+    dndz_lensgalsforclus_dic = None, 
+    dndz_sourcegalsforshear_dic = None, 
     ):
 
     import pyccl as ccl
@@ -424,36 +427,39 @@ def get_nx2pt_data_vectors_and_cov(experiment,
     ###print(cosmo); sys.exit()
 
     #get dN/dz
-    print('#get dN/dz')
-    zbin_arr = [(z, z+zbinwidth) for z in np.arange(zmin, zmax, zbinwidth)]
-    ###print('Total z-bins = %s' %(len(zbin_arr)));### sys.exit()
+    if dndz_lensgalsforclus_dic is None:
 
-    if show_plot:
-        color_arr = [cm.Reds_r(int(d)) for d in np.linspace(20, 255, len(zbin_arr))]
-        color_arr_v2 = [cm.Greens_r(int(d)) for d in np.linspace(20, 255, len(zbin_arr))]
-    
-    dndz_lensgalsforclus_dic = {}
-    dndz_sourcegalsforshear_dic = {}
-    zbin_mid_arr = []
-    for cntr, zbin in enumerate( zbin_arr ):
-        zbin_mid = (zbin[0] + zbin[1] )/2.
-        zarr_source, dndz_bin_source, bias_source, exp_specs_dic_source = get_dngal_dz_photoz('%s_source' %(experiment), zbin, cosmo_param_dict = cosmo_param_dict)
-        dndz_lensgalsforclus_dic[zbin_mid] = [zarr_source, dndz_bin_source, bias_source, exp_specs_dic_source]
-        zarr_lens, dndz_bin_lens, bias_lens, exp_specs_dic_lens = get_dngal_dz_photoz('%s_lens' %(experiment), zbin, cosmo_param_dict = cosmo_param_dict)
-        dndz_sourcegalsforshear_dic[zbin_mid] = [zarr_lens, dndz_bin_lens, bias_lens, exp_specs_dic_lens]
-        zbin_mid_arr.append( zbin_mid )
+        print('#get dN/dz')
+        zbin_arr = [(z, z+zbinwidth) for z in np.arange(zmin, zmax, zbinwidth)]
+        ###print('Total z-bins = %s' %(len(zbin_arr)));### sys.exit()
 
-    if show_plot:
+        if show_plot:
+            color_arr = [cm.Reds_r(int(d)) for d in np.linspace(20, 255, len(zbin_arr))]
+            color_arr_v2 = [cm.Greens_r(int(d)) for d in np.linspace(20, 255, len(zbin_arr))]
+        
+
+        dndz_lensgalsforclus_dic = {}
+        dndz_sourcegalsforshear_dic = {}
+        zbin_mid_arr = []
         for cntr, zbin in enumerate( zbin_arr ):
-            zarr_lens, dndz_bin_lens, bias_lens, exp_specs_dic_lens = dndz_sourcegalsforshear_dic[zbin_mid]
-            plot( zarr_lens, dndz_bin_lens, color = color_arr_v2[cntr], ls = '-.')
-            zarr_source, dndz_bin_source, bias_source, exp_specs_dic_source = dndz_lensgalsforclus_dic[zbin_mid]
-            plot( zarr_source, dndz_bin_source, color = color_arr[cntr])
-        xlim(0., 4.)
-        plot([], [], 'k-', label = r'Source galaxies')
-        plot([], [], 'k-.', label = r'Lens galaxies')
-        xlabel(r'Redshift $z$', fontsize = fsval); ylabel(r'$dN/dz$', fontsize = fsval)
-        legend(loc = 1, fontsize = fsval-2); show()
+            zbin_mid = (zbin[0] + zbin[1] )/2.
+            zarr_source, dndz_bin_source, bias_source, exp_specs_dic_source = get_dngal_dz_photoz('%s_source' %(experiment), zbin, cosmo_param_dict = cosmo_param_dict)
+            dndz_lensgalsforclus_dic[zbin_mid] = [zarr_source, dndz_bin_source, bias_source, exp_specs_dic_source]
+            zarr_lens, dndz_bin_lens, bias_lens, exp_specs_dic_lens = get_dngal_dz_photoz('%s_lens' %(experiment), zbin, cosmo_param_dict = cosmo_param_dict)
+            dndz_sourcegalsforshear_dic[zbin_mid] = [zarr_lens, dndz_bin_lens, bias_lens, exp_specs_dic_lens]
+            zbin_mid_arr.append( zbin_mid )
+
+        if show_plot:
+            for cntr, zbin in enumerate( zbin_arr ):
+                zarr_lens, dndz_bin_lens, bias_lens, exp_specs_dic_lens = dndz_sourcegalsforshear_dic[zbin_mid]
+                plot( zarr_lens, dndz_bin_lens, color = color_arr_v2[cntr], ls = '-.')
+                zarr_source, dndz_bin_source, bias_source, exp_specs_dic_source = dndz_lensgalsforclus_dic[zbin_mid]
+                plot( zarr_source, dndz_bin_source, color = color_arr[cntr])
+            xlim(0., 4.)
+            plot([], [], 'k-', label = r'Source galaxies')
+            plot([], [], 'k-.', label = r'Lens galaxies')
+            xlabel(r'Redshift $z$', fontsize = fsval); ylabel(r'$dN/dz$', fontsize = fsval)
+            legend(loc = 1, fontsize = fsval-2); show()
     
     #data vector dict
     print('#data vector dict')
@@ -733,7 +739,10 @@ def get_nx2t_cov(ell, data_vector_dic_original, zbin_mid_arr, fsky_dic, obs_key_
                 if B == C:
                     curr_data_val4 = curr_data_val4 + noise_vector_dic[cl_BC][(j,k)][elcntr]
 
-                full_cov_mat[cntr1, cntr2] = (curr_data_val1 * curr_data_val2 + curr_data_val3 * curr_data_val4) / np.sqrt( fsky_dic[obskeyAB] * fsky_dic[obskeyCD] )
+                curr_fskyval = np.sqrt( fsky_dic[obskeyAB][(cntr1, cntr2)] * fsky_dic[obskeyCD][(cntr1, cntr2)] )
+                print(obskeyAB, obskeyCD, curr_fskyval); sys.exit()
+
+                full_cov_mat[cntr1, cntr2] = (curr_data_val1 * curr_data_val2 + curr_data_val3 * curr_data_val4) / curr_fskyval
 
         ###to_plot = np.copy(full_cov_mat); to_plot[to_plot==0.] = None; imshow(to_plot, vmin = 0., vmax = 1e-12); colorbar(); show(); sys.exit()
 
