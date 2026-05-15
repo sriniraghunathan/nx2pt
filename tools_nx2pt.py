@@ -107,7 +107,7 @@ def get_shape_noise(experiment = None, reqd_zbin = None, els = None):
     return shot_noise    
 
 def get_dN_dz(experiment, z, z0, beta, alpha = 2.):
-    if experiment in ['euclid_source', 'euclid_spec_source', 'roman_hls_source', 'roman_hls_lens', 'lsst_y1_source', 'lsst_y1_lens']:
+    if experiment in ['euclid_source', 'euclid_lens', 'euclid_spec_source', 'roman_hls_source', 'roman_hls_lens', 'lsst_y1_source', 'lsst_y1_lens']:
         f_z = (z/z0)**alpha
     exp_val = -(z/z0)**beta
     return f_z * np.exp( exp_val )
@@ -120,14 +120,14 @@ def get_dngal_dz_photoz(experiment, zbin, z1 = 0.01, z2 = 4., total_bins = 500, 
         beta = 3/2
         alpha = 2.
         sigma_z = 0.05 * (1+zbin_centre)
-        zbincntr = np.arange(len(zbin)) + 1
+        zbincntr = np.arange(len(zarr)) + 1
         bias_model = 1.2 + (zbincntr * 0.1)
     elif experiment == 'euclid_lens':
         z0 = 1.
         beta = 3/2
         alpha = 2.
         sigma_z = 0.05 * (1+zbin_centre)
-        zbincntr = np.arange(len(zbin)) + 1
+        zbincntr = np.arange(len(zarr)) + 1
         bias_model = 1.2 + (zbincntr * 0.1)
     elif experiment == 'euclid_spec_source':
         z0 = 0.64
@@ -438,6 +438,8 @@ def get_nx2pt_data_vectors_and_cov(experiment,
     for cntr, zbin in enumerate( zbin_arr ):
         zbin_mid = (zbin[0] + zbin[1] )/2.
         zarr_source, dndz_bin_source, bias_source, exp_specs_dic_source = get_dngal_dz_photoz('%s_source' %(experiment), zbin, cosmo_param_dict = cosmo_param_dict)
+        print( zarr_source, bias_source )
+        sys.exit()
         dndz_lensgalsforclus_dic[zbin_mid] = [zarr_source, dndz_bin_source, bias_source, exp_specs_dic_source]
         zarr_lens, dndz_bin_lens, bias_lens, exp_specs_dic_lens = get_dngal_dz_photoz('%s_lens' %(experiment), zbin, cosmo_param_dict = cosmo_param_dict)
         dndz_sourcegalsforshear_dic[zbin_mid] = [zarr_lens, dndz_bin_lens, bias_lens, exp_specs_dic_lens]
