@@ -122,6 +122,13 @@ def get_dngal_dz_photoz(experiment, zbin, z1 = 0.01, z2 = 4., total_bins = 500, 
         sigma_z = 0.05 * (1+zbin_centre)
         zbincntr = np.arange(len(zbin)) + 1
         bias_model = 1.2 + (zbincntr * 0.1)
+    elif experiment == 'euclid_lens':
+        z0 = 1.
+        beta = 3/2
+        alpha = 2.
+        sigma_z = 0.05 * (1+zbin_centre)
+        zbincntr = np.arange(len(zbin)) + 1
+        bias_model = 1.2 + (zbincntr * 0.1)
     elif experiment == 'euclid_spec_source':
         z0 = 0.64
         beta = 3/2
