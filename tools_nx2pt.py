@@ -438,8 +438,6 @@ def get_nx2pt_data_vectors_and_cov(experiment,
     for cntr, zbin in enumerate( zbin_arr ):
         zbin_mid = (zbin[0] + zbin[1] )/2.
         zarr_source, dndz_bin_source, bias_source, exp_specs_dic_source = get_dngal_dz_photoz('%s_source' %(experiment), zbin, cosmo_param_dict = cosmo_param_dict)
-        print( zarr_source, bias_source )
-        sys.exit()
         dndz_lensgalsforclus_dic[zbin_mid] = [zarr_source, dndz_bin_source, bias_source, exp_specs_dic_source]
         zarr_lens, dndz_bin_lens, bias_lens, exp_specs_dic_lens = get_dngal_dz_photoz('%s_lens' %(experiment), zbin, cosmo_param_dict = cosmo_param_dict)
         dndz_sourcegalsforshear_dic[zbin_mid] = [zarr_lens, dndz_bin_lens, bias_lens, exp_specs_dic_lens]
