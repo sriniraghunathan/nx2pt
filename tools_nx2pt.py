@@ -402,8 +402,26 @@ def get_scale_dependent_bias(cosmo_param_dict, zarr, bias_model, exp_specs_dic, 
     bias_model = 0.9/Dz
     bias_model[np.isinf(bias_model) | np.isnan(bias_model)] = 0.
 
+def get_combined_experiment_dndz(combined_exp, zmin, zmax, zbinwidth, cosmo_param_dict, delimited = '+++++'): 
+    combined_experiment_arr = combined_exp.split(delimited)
+    zbin_arr = [(z, z+zbinwidth) for z in np.arange(zmin, zmax, zbinwidth)]
+    dndz_lensgalsforclus_dic_combexp = {}
+    dndz_sourcegalsforshear_dic_combexp = {}
+    zbin_mid_arr = []
+    total_cntr = 0
+    for curr_exp_cntr, curr_exp in enumerate( combined_experiment_arr ):
+        for cntr, zbin in enumerate( zbin_arr ):
+            zbin_mid = (zbin[0] + zbin[1] )/2.
+            zarr_source_combexp, dndz_bin_source_combexp, bias_source_combexp, exp_specs_dic_source_combexp = get_dngal_dz_photoz('%s_source' %(curr_exp), zbin, cosmo_param_dict = cosmo_param_dict)
+            dndz_lensgalsforclus_dic_combexp[total_cntr] = [zarr_source_combexp, dndz_bin_source_combexp, bias_source_combexp, exp_specs_dic_source_combexp]
+            zarr_lens_combexp, dndz_bin_lens_combexp, bias_lens_combexp, exp_specs_dic_lens_combexp = get_dngal_dz_photoz('%s_lens' %(curr_exp), zbin, cosmo_param_dict = cosmo_param_dict)
+            dndz_sourcegalsforshear_dic_combexp[total_cntr] = [zarr_lens_combexp, dndz_bin_lens_combexp, bias_lens_combexp, exp_specs_dic_lens_combexp]
+            zbin_mid_arr.append( total_cntr )
+            total_cntr += 1
+    return zbin_mid_arr, dndz_lensgalsforclus_dic_combexp, dndz_sourcegalsforshear_dic_combexp
+
 def get_nx2pt_data_vectors_and_cov(experiment, 
-    zmin = 0.01, zbinwidth = 0.5, zmax = 4.1, 
+    zmin = 0.01, zmax = 4.1, zbinwidth = 0.5, 
     ell = None, 
     cosmo_param_dict = None, 
     has_rsd = False, 
@@ -462,7 +480,7 @@ def get_nx2pt_data_vectors_and_cov(experiment,
             legend(loc = 1, fontsize = fsval-2); show()
     
     #data vector dict
-    print('#data vector dict')
+    print('#data vector dict'); ###sys.exit()
     data_vector_dic = {}
     noise_vector_dic = {}
     if include_cmb_lensing:
@@ -606,7 +624,17 @@ def get_nx2pt_data_vectors_and_cov(experiment,
         full_cov_mat_dic = get_nx2t_cov(ell, data_vector_dic, zbin_arr, fsky_dic, noise_vector_dic = noise_vector_dic)
         return ell, zbin_arr, dndz_lensgalsforclus_dic, dndz_sourcegalsforshear_dic, data_vector_dic, noise_vector_dic, full_cov_mat_dic
 
-def get_nx2pt_derivatives(experiment, zbinwidth, params_for_deriv, param_dict, dndz_lensgalsforclus_dic, dndz_sourcegalsforshear_dic, ell = None, has_rsd = False, step_percent = 0.01, data_vector_dic = None, include_cmb_lensing = False):
+def get_nx2pt_derivatives(experiment, 
+    zmin, zmax, zbinwidth, 
+    params_for_deriv, 
+    param_dict, 
+    ell = None, 
+    has_rsd = False, 
+    step_percent = 0.01, 
+    data_vector_dic = None, 
+    include_cmb_lensing = False,
+    combined_exp_delimiter = '+++++',
+    ):
 
     import copy
     #loop over parameters and get the observables/derivatives by modifying each param as param-step and param+step
@@ -629,7 +657,7 @@ def get_nx2pt_derivatives(experiment, zbinwidth, params_for_deriv, param_dict, d
 
         if ppp.find('b_')==0:
             if data_vector_dic is None:
-                ell, zbin_arr, dndz_lensgalsforclus_dic, dndz_sourcegalsforshear_dic, data_vector_dic, noise_vector_dic = get_nx2pt_data_vectors_and_cov(experiment, zbinwidth, ell = ell, cosmo_param_dict = param_dict, include_cmb_lensing = include_cmb_lensing)
+                ell, zbin_arr, dndz_lensgalsforclus_dic, dndz_sourcegalsforshear_dic, data_vector_dic, noise_vector_dic = get_nx2pt_data_vectors_and_cov(experiment, zmin, zmax, zbinwidth, ell = ell, cosmo_param_dict = param_dict, include_cmb_lensing = include_cmb_lensing)
             data_vector_dic_low, data_vector_dic_high = {}, {}
             for obskey in data_vector_dic:
                 data_vector_dic_low[obskey] = {}
@@ -644,8 +672,15 @@ def get_nx2pt_derivatives(experiment, zbinwidth, params_for_deriv, param_dict, d
                         data_vector_dic_low[obskey][z1z2] = data_vector_dic[obskey][z1z2]
                         data_vector_dic_high[obskey][z1z2] = data_vector_dic[obskey][z1z2]
         else:
-            ell, zbin_arr_low, dndz_lensgalsforclus_dic_low, dndz_sourcegalsforshear_dic_low, data_vector_dic_low, noise_vector_dic_low = get_nx2pt_data_vectors_and_cov(experiment, zbinwidth, ell = ell, cosmo_param_dict = param_dict_low, include_cmb_lensing = include_cmb_lensing)
-            ell, zbin_arr_high, dndz_lensgalsforclus_dic_high, dndz_sourcegalsforshear_dic_high, data_vector_dic_high, noise_vector_dic_high = get_nx2pt_data_vectors_and_cov(experiment, zbinwidth, ell = ell, cosmo_param_dict = param_dict_high, include_cmb_lensing = include_cmb_lensing)
+            if experiment.find(combined_exp_delimiter)==-1:
+                ell, zbin_arr_low, dndz_lensgalsforclus_dic_low, dndz_sourcegalsforshear_dic_low, data_vector_dic_low, noise_vector_dic_low = get_nx2pt_data_vectors_and_cov(experiment, zmin, zmax, zbinwidth, ell = ell, cosmo_param_dict = param_dict_low, include_cmb_lensing = include_cmb_lensing)
+                ell, zbin_arr_high, dndz_lensgalsforclus_dic_high, dndz_sourcegalsforshear_dic_high, data_vector_dic_high, noise_vector_dic_high = get_nx2pt_data_vectors_and_cov(experiment, zmin, zmax, zbinwidth, ell = ell, cosmo_param_dict = param_dict_high, include_cmb_lensing = include_cmb_lensing)
+            else:
+                zbin_mid_arr_low, dndz_lensgalsforclus_dic_low, dndz_sourcegalsforshear_dic_low = get_combined_experiment_dndz(experiment, zmin, zmax, zbinwidth, param_dict_low)
+                ell, zbin_arr_low, dndz_lensgalsforclus_dic_low, dndz_sourcegalsforshear_dic_low, data_vector_dic_low, noise_vector_dic_low = get_nx2pt_data_vectors_and_cov(experiment, zmin, zmax, zbinwidth, ell = ell, cosmo_param_dict = param_dict_low, include_cmb_lensing = include_cmb_lensing, zbin_mid_arr = zbin_mid_arr_low, dndz_lensgalsforclus_dic = dndz_lensgalsforclus_dic_low, dndz_sourcegalsforshear_dic = dndz_sourcegalsforshear_dic_low)
+                
+                zbin_mid_arr_high, dndz_lensgalsforclus_dic_high, dndz_sourcegalsforshear_dic_high = get_combined_experiment_dndz(experiment, zmin, zmax, zbinwidth, param_dict_high)
+                ell, zbin_arr_high, dndz_lensgalsforclus_dic_high, dndz_sourcegalsforshear_dic_high, data_vector_dic_high, noise_vector_dic_high = get_nx2pt_data_vectors_and_cov(experiment, zmin, zmax, zbinwidth, ell = ell, cosmo_param_dict = param_dict_high, include_cmb_lensing = include_cmb_lensing, zbin_mid_arr = zbin_mid_arr_high, dndz_lensgalsforclus_dic = dndz_lensgalsforclus_dic_high, dndz_sourcegalsforshear_dic = dndz_sourcegalsforshear_dic_high)
 
         derivative_vector_dic[ppp] = {}
         for obskey in data_vector_dic_low:
@@ -657,6 +692,7 @@ def get_nx2pt_derivatives(experiment, zbinwidth, params_for_deriv, param_dict, d
                 ##print(curr_data_vector_high)
                 deriv_val = ( curr_data_vector_high - curr_data_vector_low ) / (2 * pstepval)
                 derivative_vector_dic[ppp][obskey][z1z2] = deriv_val
+                ##print(deriv_val); sys.exit()
 
     return derivative_vector_dic
 
@@ -739,9 +775,10 @@ def get_nx2t_cov(ell, data_vector_dic_original, zbin_mid_arr, fsky_dic, obs_key_
                 if B == C:
                     curr_data_val4 = curr_data_val4 + noise_vector_dic[cl_BC][(j,k)][elcntr]
 
+                ##print(obskeyAB, obskeyCD, i, j, k, l); ##sys.exit()
                 curr_fskyval = np.sqrt( fsky_dic[obskeyAB][(i, j)] * fsky_dic[obskeyCD][(k, l)] )
                 #curr_fskyval = np.sqrt( fsky_dic[obskeyAB] * fsky_dic[obskeyCD] )
-                ##print(obskeyAB, obskeyCD, curr_fskyval); ##sys.exit()
+                ##print(obskeyAB, obskeyCD, i, j, k, l, curr_fskyval); ##sys.exit()
 
                 full_cov_mat[cntr1, cntr2] = (curr_data_val1 * curr_data_val2 + curr_data_val3 * curr_data_val4) / curr_fskyval
 
