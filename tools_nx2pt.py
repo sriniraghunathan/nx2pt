@@ -740,9 +740,12 @@ def get_nx2t_cov(ell, data_vector_dic_original, zbin_mid_arr, fsky_dic, obs_key_
                     curr_data_val4 = curr_data_val4 + noise_vector_dic[cl_BC][(j,k)][elcntr]
 
                 curr_fskyval = np.sqrt( fsky_dic[obskeyAB][(i, j)] * fsky_dic[obskeyCD][(k, l)] )
-                ##print(obskeyAB, obskeyCD, curr_fskyval); sys.exit()
+                #curr_fskyval = np.sqrt( fsky_dic[obskeyAB] * fsky_dic[obskeyCD] )
+                ##print(obskeyAB, obskeyCD, curr_fskyval); ##sys.exit()
 
                 full_cov_mat[cntr1, cntr2] = (curr_data_val1 * curr_data_val2 + curr_data_val3 * curr_data_val4) / curr_fskyval
+
+        ##sys.exit()
 
         ###to_plot = np.copy(full_cov_mat); to_plot[to_plot==0.] = None; imshow(to_plot, vmin = 0., vmax = 1e-12); colorbar(); show(); sys.exit()
 
