@@ -32,10 +32,9 @@ def process_cosmo_param_dict_and_set_cosmo(cosmo_param_dict):
         w0=cosmo_param_dict['w0'], wa=cosmo_param_dict['wa'], 
         m_nu=cosmo_param_dict['mnu'],
         transfer_function='boltzmann_camb',
-        #extra_parameters={'camb': {'dark_energy_model': 'ppf', 'kmax': cosmo_param_dict['kmax']}},
-        extra_parameters={'camb': {'dark_energy_model': 'ppf'}},
+        extra_parameters={'camb': {'dark_energy_model': 'ppf', 'kmax': cosmo_param_dict['kmax']}},        
+        ##extra_parameters={'camb': {'dark_energy_model': 'ppf'}},
         )    
-
     return cosmo_param_dict, cosmo
 
 def ngal_experiment(experiment, units = 'sr'):
@@ -405,9 +404,11 @@ def get_nx2pt_data_vectors_and_cov(experiment,
     obtain_cov = False, 
     include_ia_errors = True,
     add_scale_dependent_bias = False,
-    get_cmb_lensing = False, 
+    include_cmb_lensing = False, 
     fsky_dic = None, 
-    show_plot = False):
+    cmb_experiment_for_kappa = 'advanced_sobaseline',
+    show_plot = False,
+    ):
 
     import pyccl as ccl
     if ell is None:
@@ -429,9 +430,9 @@ def get_nx2pt_data_vectors_and_cov(experiment,
     zbin_mid_arr = []
     for cntr, zbin in enumerate( zbin_arr ):
         zbin_mid = (zbin[0] + zbin[1] )/2.
-        zarr_source, dndz_bin_source, bias_source, exp_specs_dic_source = get_dngal_dz_photoz('%s_source' %(experiment), zbin)
+        zarr_source, dndz_bin_source, bias_source, exp_specs_dic_source = get_dngal_dz_photoz('%s_source' %(experiment), zbin, cosmo_param_dict = cosmo_param_dict)
         dndz_lensgalsforclus_dic[zbin_mid] = [zarr_source, dndz_bin_source, bias_source, exp_specs_dic_source]
-        zarr_lens, dndz_bin_lens, bias_lens, exp_specs_dic_lens = get_dngal_dz_photoz('%s_lens' %(experiment), zbin)
+        zarr_lens, dndz_bin_lens, bias_lens, exp_specs_dic_lens = get_dngal_dz_photoz('%s_lens' %(experiment), zbin, cosmo_param_dict = cosmo_param_dict)
         dndz_sourcegalsforshear_dic[zbin_mid] = [zarr_lens, dndz_bin_lens, bias_lens, exp_specs_dic_lens]
         zbin_mid_arr.append( zbin_mid )
 
@@ -451,7 +452,7 @@ def get_nx2pt_data_vectors_and_cov(experiment,
     print('#data vector dict')
     data_vector_dic = {}
     noise_vector_dic = {}
-    if get_cmb_lensing:
+    if include_cmb_lensing:
         #CMB lensing tracer
         curr_t_k = ccl.CMBLensingTracer(cosmo, z_source=z_lss)
     
@@ -460,7 +461,21 @@ def get_nx2pt_data_vectors_and_cov(experiment,
         data_vector_dic['cl_k_k'] = {(0, 0): curr_cl_k_k}
         data_vector_dic['cl_k_g'] = {}
         data_vector_dic['cl_k_s'] = {}
-        curr_nl_k_k = curr_cl_k_k * 0.
+
+        #CMB-lensing noise.
+        cmb_lensing_noise_fname_searchstr = 'data/cmb/lensing/%s_*lmin300_lmax4000_lmaxtt3500.npy' %(cmb_experiment_for_kappa)
+        cmb_lensing_noise_fname = glob.glob( cmb_lensing_noise_fname_searchstr )[0]
+        print('\tcmb_lensing_noise_fname = %s' %(cmb_lensing_noise_fname))
+        cmbkappadic = np.load(cmb_lensing_noise_fname, allow_pickle=True, encoding = 'latin1').item()
+        tmpels, tmpnlkk = cmbkappadic['els'], cmbkappadic['Nl_MV']
+        curr_nl_k_k = np.interp(ell, tmpels, tmpnlkk)
+        clf()
+        ax = subplot(111, yscale = 'log')
+        plot( ell, curr_cl_k_k )
+        plot( ell, curr_nl_k_k )
+        show(); sys.exit()
+
+        curr_nl_k_k = curr_nl_k_k
         noise_vector_dic['cl_k_k'] = {(0,0): curr_nl_k_k}
 
     data_vector_dic['cl_g_g'] = {}
@@ -480,7 +495,7 @@ def get_nx2pt_data_vectors_and_cov(experiment,
     all_combs_gs = np.unique( ['cl_g_s_z%s_z%s' %(z1z2[0], z1z2p[1]) for z1z2 in all_zcombs for z1z2p in all_zcombs] ).tolist()
     ##print( len(all_combs_ss), len(all_combs_gg), len(all_combs_gs)); sys.exit()
 
-    if get_cmb_lensing:
+    if include_cmb_lensing:
         for cntr1, zbin1 in enumerate( dndz_lensgalsforclus_dic ):
             zarr_lensgal1, dndz_lensgal1, bias_lensgal1, exp_specs_dic_lensgal1 = dndz_lensgalsforclus_dic[zbin1]
             zarr_sourcegal1, dndz_sourcegal1, bias_sourcegal1, exp_specs_dic_sourcegal1 = dndz_sourcegalsforshear_dic[zbin1]
@@ -577,7 +592,7 @@ def get_nx2pt_data_vectors_and_cov(experiment,
         full_cov_mat_dic = get_nx2t_cov(ell, data_vector_dic, zbin_arr, fsky_dic, noise_vector_dic = noise_vector_dic)
         return ell, zbin_arr, dndz_lensgalsforclus_dic, dndz_sourcegalsforshear_dic, data_vector_dic, noise_vector_dic, full_cov_mat_dic
 
-def get_nx2pt_derivatives(experiment, zbinwidth, params_for_deriv, param_dict, dndz_lensgalsforclus_dic, dndz_sourcegalsforshear_dic, ell = None, has_rsd = False, step_percent = 0.01, data_vector_dic = None, get_cmb_lensing = False):
+def get_nx2pt_derivatives(experiment, zbinwidth, params_for_deriv, param_dict, dndz_lensgalsforclus_dic, dndz_sourcegalsforshear_dic, ell = None, has_rsd = False, step_percent = 0.01, data_vector_dic = None, include_cmb_lensing = False):
 
     import copy
     #loop over parameters and get the observables/derivatives by modifying each param as param-step and param+step
@@ -600,7 +615,7 @@ def get_nx2pt_derivatives(experiment, zbinwidth, params_for_deriv, param_dict, d
 
         if ppp.find('b_')==0:
             if data_vector_dic is None:
-                ell, zbin_arr, dndz_lensgalsforclus_dic, dndz_sourcegalsforshear_dic, data_vector_dic, noise_vector_dic = get_nx2pt_data_vectors_and_cov(experiment, zbinwidth, ell = ell, cosmo_param_dict = param_dict, get_cmb_lensing = get_cmb_lensing)
+                ell, zbin_arr, dndz_lensgalsforclus_dic, dndz_sourcegalsforshear_dic, data_vector_dic, noise_vector_dic = get_nx2pt_data_vectors_and_cov(experiment, zbinwidth, ell = ell, cosmo_param_dict = param_dict, include_cmb_lensing = include_cmb_lensing)
             data_vector_dic_low, data_vector_dic_high = {}, {}
             for obskey in data_vector_dic:
                 data_vector_dic_low[obskey] = {}
@@ -615,8 +630,8 @@ def get_nx2pt_derivatives(experiment, zbinwidth, params_for_deriv, param_dict, d
                         data_vector_dic_low[obskey][z1z2] = data_vector_dic[obskey][z1z2]
                         data_vector_dic_high[obskey][z1z2] = data_vector_dic[obskey][z1z2]
         else:
-            ell, zbin_arr_low, dndz_lensgalsforclus_dic_low, dndz_sourcegalsforshear_dic_low, data_vector_dic_low, noise_vector_dic_low = get_nx2pt_data_vectors_and_cov(experiment, zbinwidth, ell = ell, cosmo_param_dict = param_dict_low, get_cmb_lensing = get_cmb_lensing)
-            ell, zbin_arr_high, dndz_lensgalsforclus_dic_high, dndz_sourcegalsforshear_dic_high, data_vector_dic_high, noise_vector_dic_high = get_nx2pt_data_vectors_and_cov(experiment, zbinwidth, ell = ell, cosmo_param_dict = param_dict_high, get_cmb_lensing = get_cmb_lensing)
+            ell, zbin_arr_low, dndz_lensgalsforclus_dic_low, dndz_sourcegalsforshear_dic_low, data_vector_dic_low, noise_vector_dic_low = get_nx2pt_data_vectors_and_cov(experiment, zbinwidth, ell = ell, cosmo_param_dict = param_dict_low, include_cmb_lensing = include_cmb_lensing)
+            ell, zbin_arr_high, dndz_lensgalsforclus_dic_high, dndz_sourcegalsforshear_dic_high, data_vector_dic_high, noise_vector_dic_high = get_nx2pt_data_vectors_and_cov(experiment, zbinwidth, ell = ell, cosmo_param_dict = param_dict_high, include_cmb_lensing = include_cmb_lensing)
 
         derivative_vector_dic[ppp] = {}
         for obskey in data_vector_dic_low:
