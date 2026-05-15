@@ -469,12 +469,13 @@ def get_nx2pt_data_vectors_and_cov(experiment,
         cmbkappadic = np.load(cmb_lensing_noise_fname, allow_pickle=True, encoding = 'latin1').item()
         tmpels, tmpnlkk = cmbkappadic['els'], cmbkappadic['Nl_MV']
         curr_nl_k_k = np.interp(ell, tmpels, tmpnlkk)
+        """
         clf()
         ax = subplot(111, yscale = 'log')
         plot( ell, curr_cl_k_k )
         plot( ell, curr_nl_k_k )
         show(); sys.exit()
-
+        """
         curr_nl_k_k = curr_nl_k_k
         noise_vector_dic['cl_k_k'] = {(0,0): curr_nl_k_k}
 
