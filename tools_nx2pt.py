@@ -403,7 +403,7 @@ def get_scale_dependent_bias(cosmo_param_dict, zarr, bias_model, exp_specs_dic, 
     bias_model[np.isinf(bias_model) | np.isnan(bias_model)] = 0.
 
 def get_nx2pt_data_vectors_and_cov(experiment, 
-    zmin = 0.01, zbinwidth = 0.5, zmax = 2.51, 
+    zmin = 0.01, zbinwidth = 0.5, zmax = 4.1, 
     ell = None, 
     cosmo_param_dict = None, 
     has_rsd = False, 
