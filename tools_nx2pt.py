@@ -149,7 +149,7 @@ def get_dngal_dz_photoz(experiment, zbin, z1 = 0.01, z2 = 4., total_bins = 500, 
         beta = 0.58
         alpha =2.
         """
-        z0 = 0.8
+        z0 = 0.08
         beta = 0.58
         alpha = 2.
         sigma_z = 0.05 * (1+zbin_centre)
@@ -421,7 +421,7 @@ def get_combined_experiment_dndz(combined_exp, zmin, zmax, zbinwidth, cosmo_para
     return zbin_mid_arr, dndz_lensgalsforclus_dic_combexp, dndz_sourcegalsforshear_dic_combexp
 
 def get_nx2pt_data_vectors_and_cov(experiment, 
-    zmin = 0.01, zmax = 4.1, zbinwidth = 0.5, 
+    zmin = 0.01, zmax = 2.51, zbinwidth = 0.5, 
     ell = None, 
     cosmo_param_dict = None, 
     has_rsd = False, 
@@ -449,12 +449,8 @@ def get_nx2pt_data_vectors_and_cov(experiment,
 
         print('#get dN/dz')
         zbin_arr = [(z, z+zbinwidth) for z in np.arange(zmin, zmax, zbinwidth)]
-        ###print('Total z-bins = %s' %(len(zbin_arr)));### sys.exit()
-
-        if show_plot:
-            color_arr = [cm.Reds_r(int(d)) for d in np.linspace(20, 255, len(zbin_arr))]
-            color_arr_v2 = [cm.Greens_r(int(d)) for d in np.linspace(20, 255, len(zbin_arr))]
-        
+        ##print(zbin_arr); sys.exit()
+        ##print('Total z-bins = %s' %(len(zbin_arr)));### sys.exit()
 
         dndz_lensgalsforclus_dic = {}
         dndz_sourcegalsforshear_dic = {}
@@ -468,16 +464,22 @@ def get_nx2pt_data_vectors_and_cov(experiment,
             zbin_mid_arr.append( zbin_mid )
 
         if show_plot:
+            clf()
+            fsval = 14
+            ax = subplot(111)
+            color_arr = [cm.Reds_r(int(d)) for d in np.linspace(20, 255, len(zbin_arr))]
+            color_arr_v2 = [cm.Greens_r(int(d)) for d in np.linspace(20, 255, len(zbin_arr))]
             for cntr, zbin in enumerate( zbin_arr ):
+                zbin_mid = (zbin[0] + zbin[1] )/2.
                 zarr_lens, dndz_bin_lens, bias_lens, exp_specs_dic_lens = dndz_sourcegalsforshear_dic[zbin_mid]
                 plot( zarr_lens, dndz_bin_lens, color = color_arr_v2[cntr], ls = '-.')
                 zarr_source, dndz_bin_source, bias_source, exp_specs_dic_source = dndz_lensgalsforclus_dic[zbin_mid]
                 plot( zarr_source, dndz_bin_source, color = color_arr[cntr])
-            xlim(0., 4.)
+            xlim(0., 10.)
             plot([], [], 'k-', label = r'Source galaxies')
             plot([], [], 'k-.', label = r'Lens galaxies')
             xlabel(r'Redshift $z$', fontsize = fsval); ylabel(r'$dN/dz$', fontsize = fsval)
-            legend(loc = 1, fontsize = fsval-2); show()
+            legend(loc = 1, fontsize = fsval-2); show(); sys.exit()
     
     #data vector dict
     print('#data vector dict'); ###sys.exit()

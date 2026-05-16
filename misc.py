@@ -59,7 +59,7 @@ def get_lsst_3x2pt_params(lsst_config_key):
 
 def combine_fisher( F_mat_arr, param_names_arr, small_diag_element = 1e-3):
 
-    param_names_diff_dic = {'a_s': 'As', 'n_s': 'ns', 'omega_c_h2': 'omch2',  'omega_b_h2': 'ombh2', 'w_0': 'ws', 'w_a': 'wa'}
+    param_names_diff_dic = {'a_s': 'As', 'n_s': 'ns', 'omega_c_h2': 'omch2',  'omega_b_h2': 'ombh2', 'w_0': 'w0', 'w_a': 'wa', 'w': 'w0'}
     param_names_arr_mod = []
     for curr_param_names in param_names_arr:
         curr_param_names_mod = []
@@ -670,8 +670,9 @@ def make_triangle_plot(F_dic, tr, tc, param_names, param_values_dict, desired_pa
                         widthval = cov_extract[0,0]**0.5##/2.35
                         ###print(p1, cov_extract); sys.exit()
                         ##print(p1, x1, x2)
+                        ##print(cov_extract); sys.exit()
                         hor, ver = get_gaussian(x, widthval, x1, x2)#, epsilon_x)
-
+                        ##print(hor, ver)
                         #labval = r'%.4f' %(widthval)
                         labval = None
                         if show_one_sigma_lab:
